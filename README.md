@@ -79,7 +79,7 @@ from G & A Technical Software, Inc. The following is an example:
 ```
 
 
-## Example
+## Examples
 
 There are several measurements provided in this repository. The correct configuration of the script 
 for each of these measurements is:
