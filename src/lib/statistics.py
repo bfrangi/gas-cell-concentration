@@ -1,12 +1,12 @@
-def zscore(s, window, thresh=3, return_all=False):
-    import pandas as pd
-    s = pd.Series(s)
-    roll = s.rolling(window=window, min_periods=1, center=True)
-    avg = roll.mean()
-    std = roll.std(ddof=0)
-    z = s.sub(avg).div(std)   
-    m = z.between(-thresh, thresh)
-    
-    if return_all:
-        return z, avg, std, m
-    return s.where(m, avg)
+def mean_square_difference(y1, y2):
+    """
+    Computes the mean square difference between y1 and y2.
+
+    Args:
+        y1 (array): The first array.
+        y2 (array): The second array.
+    """
+    if len(y1) != len(y2):
+        raise ValueError('The two arrays must have the same length')
+    import numpy as np
+    return np.sum((y1 - y2)**2) / len(y1)

@@ -1,6 +1,3 @@
-########################### FFT Functions ############################
-
-
 def fft(x, y):
     from scipy.fft import fft as scipy_fft
     from scipy.fft import fftfreq
@@ -17,10 +14,3 @@ def fft_plot_data(x, y):
     x_data = xf
     y_data = 2.0/N * np.abs(yf[0:N//2])
     return x_data, y_data
-
-def plot_fft(x, y):
-    import matplotlib.pyplot as plt
-    x_data, y_data = fft_plot_data(x, y)
-    plt.plot(x_data, y_data, 'r-', linewidth=2)
-    plt.grid()
-    return plt

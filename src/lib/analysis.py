@@ -1,67 +1,7 @@
-from .filters import limit_filter, threshold_filter
-
-
-######################## Simple Absorption and Transmission Curve Analysis #########################
-
-
-def absorption_curve(x, y_sample, y_reference, threshold=1.5e-5, f_threshold=20e3, f_limit=60e3):
-    """
-    Returns the absorption curve of a sample and reference spectrum by directly comparing their 
-    amplitudes. The absorption curve is calculated as the percentage difference between the sample 
-    and reference amplitudes.
-
-    Args:
-        x (array-like): The frequency array.
-        y_sample (array-like): The amplitude of the sample spectrum.
-        y_reference (array-like): The amplitude of the reference spectrum.
-        threshold (float): The threshold for the sample amplitude. All amplitudes below this value 
-            are removed from the result.
-        f_threshold (float): The threshold for the frequency array. All frequencies below this value
-            are removed from the result.
-        f_limit (float): The limit for the frequency array. All frequencies above this value are
-            removed from the result.
-    """
-    x, y_sample, y_reference = limit_filter(x, f_limit, y_sample, y_reference)
-    x, y_sample, y_reference = threshold_filter(
-        x, f_threshold, y_sample, y_reference)
-    y_sample, x, y_reference = threshold_filter(
-        y_sample, threshold, x, y_reference)
-
-    diff = -(y_sample - y_reference) / y_reference * 100
-    diff, x = threshold_filter(diff, 0, x)
-
-    return x, diff
-
-
-def transmission_curve(x, y_sample, y_reference, threshold=1.5e-5, f_threshold=20e3, f_limit=60e3):
-    """
-    Returns the transmission curve of a sample and reference spectrum by directly comparing their
-    amplitudes. The transmission curve is calculated as the percentage difference between the
-    reference and sample amplitudes.
-
-    Args:
-        x (array-like): The frequency array.
-        y_sample (array-like): The amplitude of the sample spectrum.
-        y_reference (array-like): The amplitude of the reference spectrum.
-        threshold (float): The threshold for the sample amplitude. All amplitudes below this value
-            are removed from the result.
-        f_threshold (float): The threshold for the frequency array. All frequencies below this value
-            are removed from the result.
-        f_limit (float): The limit for the frequency array. All frequencies above this value are
-            removed from the result.
-    """
-    x, diff = absorption_curve(
-        x, y_sample, y_reference, threshold, f_threshold, f_limit)
-    diff = 100 - diff
-    return x, diff
-
-###################################### Comb Spectrum Analysis ######################################
-
-
 class CombAnalyser:
     """Generates the absorption and transmission curves of a sample and reference spectrum.
     Frequency arrays must be the same for both sample and reference data.
-    
+
     Args:
         f_sample (array-like): The frequency array of the sample spectrum.
         a_sample (array-like): The amplitude of the sample spectrum.
@@ -69,7 +9,7 @@ class CombAnalyser:
         a_reference (array-like): The amplitude of the reference spectrum."""
 
     def __init__(self, f_sample, a_sample, f_reference, a_reference):
-        if f_sample.any() != f_reference.any():
+        if not (f_sample == f_reference).all():
             raise ValueError(
                 'The frequencies of the sample and reference data must be the same.')
         self.f_sample = f_sample
@@ -151,13 +91,14 @@ class CombAnalyser:
 class CombSpectrumAnalyser:
     """Obtains the comb spectrum of a given frequency and amplitude data, selecting the specific
     frequencies that correspond to the comb teeth."""
-    def __init__(self, freq, amp, center_freq=None, freq_spacing=None, number_of_teeth=None):
+
+    def __init__(self, freq, amp, center_freq=40000.0, freq_spacing=200.0, number_of_teeth=38):
         self.freq = freq
         self.amp = amp
 
-        self.center_freq = 40000.0 if center_freq is None else center_freq
-        self.freq_spacing = 200.0 if freq_spacing is None else freq_spacing
-        self.number_of_teeth = 38 if number_of_teeth is None else number_of_teeth
+        self.center_freq = center_freq
+        self.freq_spacing = freq_spacing
+        self.number_of_teeth = number_of_teeth
 
         self.extracted_freq = None
         self.extracted_amp = None
@@ -210,218 +151,243 @@ class CombSpectrumAnalyser:
     def show_spectrum_plot(self):
         self.generate_spectrum_plot().show()
 
-class AbsorptionAnalyser:
-    def __init__(self, filename_sample, filename_reference, center_freq=40000, freq_spacing=200, 
-                 number_of_teeth=38, high_freq_modulation=1e9, laser_wavelength=1645.56e-9):
+class SpectralCalcFitter:
 
-        from .combs import high_frequency_spectrum, normalise_transmission
-        from .fft import fft_plot_data
-        from .labview import Reader
-        import sys
-
-        reader_sample = Reader(filename_sample)
-        sample_data = reader_sample.extract_data()
-
-        reader_reference = Reader(filename_reference)
-        reference_data = reader_reference.extract_data()
-
-        t_sample = sample_data['time']
-        amplitude_sample = sample_data['amplitude']
-
-        t_reference = reference_data['time']
-        amplitude_reference = reference_data['amplitude']
-
-
-        # Check that time arrays are the same in both time series
-        try:
-            if not (t_sample == t_reference).all():
-                raise ValueError
-            t = t_sample
-        except ValueError:
-            print('Time arrays are not the same in both time series')
-            sys.exit(1)
-
-        x_sample, y_sample = fft_plot_data(t, amplitude_sample)
-        x_reference, y_reference = fft_plot_data(t, amplitude_reference)
-
-        # Analyse the comb spectrum
-
-        sample_analyzer = CombSpectrumAnalyser(x_sample, y_sample, center_freq, freq_spacing, 
-                                               number_of_teeth)
-        sample_freq, sample_amp = sample_analyzer.extract_teeth()
-
-        reference_analyzer = CombSpectrumAnalyser(x_reference, y_reference, center_freq, 
-                                                  freq_spacing, number_of_teeth)
-        ref_freq, ref_amp = reference_analyzer.extract_teeth()
-
-        self.comb_analyser = CombAnalyser(sample_freq, sample_amp, ref_freq, ref_amp)
-        self.f_radio_frequency, self.a_radio_frequency = self.comb_analyser.get_transmission_curve()
-
-        # Transform the low frequency comb spectrum to the high frequency comb spectrum
-        f, a = high_frequency_spectrum(self.f_radio_frequency, self.a_radio_frequency, 
-                                                     f0=center_freq, fs=freq_spacing, 
-                                                     fS=high_freq_modulation, laser_wl=laser_wavelength)
-
-        # Normalise the transmission curve
-        self.f, self.a = normalise_transmission(f, a, replace_outliers=False)
-        
-    def generate_absorption_plot(self, interp=False):
-        x, y = self.f, self.a
-
-        from matplotlib import pyplot as plt
-        plt.scatter(x, y)
-        if interp:
-            from lib.fitting import loose_interpolation
-            x, y = loose_interpolation(x, y)
-            plt.plot(x, y)
-        plt.title('Absorption Spectrum')
-        return plt
-
-    def show_absorption_plot(self, interp=False):
-        return self.generate_absorption_plot(interp=interp).show()
-
-    def generate_transmission_plot(self, interp=False):
-        x, y = self.f, self.a
-
-        from matplotlib import pyplot as plt
-        plt.scatter(x, 1 - y)
-        if interp:
-            from lib.fitting import loose_interpolation
-            x, y = loose_interpolation(x, y)
-            plt.plot(x, 1 - y)
-        plt.title('Transmission Spectrum')
-        return plt
-
-    def show_transmission_plot(self, interp=False):
-        return self.generate_transmission_plot(interp=interp).show()
-
-
-class ConcentrationFitter:
-    def __init__(self, filename_sample, filename_reference, temperature=296, length=0.1,
-                 center_freq=40000, freq_spacing=200, number_of_teeth=38, high_freq_modulation=1e9,
-                 laser_wavelength=1645.56e-9, correction=None):
+    def __init__(self, filename_sample, filename_reference, filename_spectralcalc,
+                 scaling_factor=1.0, center_freq=40000, freq_spacing=200, number_of_teeth=38,
+                 high_freq_modulation=1e9, etalon_removal=()):
         self.filename_sample = filename_sample
         self.filename_reference = filename_reference
-        self.temperature = temperature
-        self.length = length
+        self.filename_spectralcalc = filename_spectralcalc
+        self.scaling_factor = scaling_factor
         self.center_freq = center_freq
         self.freq_spacing = freq_spacing
         self.number_of_teeth = number_of_teeth
         self.high_freq_modulation = high_freq_modulation
-        self.laser_wavelength = laser_wavelength
+        self.etalon_removal = etalon_removal
 
-        self.a_transmission_curve_measurement = None
-        self.f_transmission_curve_measurement = None
-        self.a_transmission_curve_spectralcalc = None
-        self.f_transmission_curve_spectralcalc = None
+        self.t = None
+        self.amplitude_sample = None
+        self.amplitude_reference = None
 
-        self.absorption_analyser = None
-
+        self.wl_spectralcalc = None
+        self.power_spectralcalc = None
+        self.pressure = None
+        self.temperature = None
         self.concentration = None
+        self.length = None
 
-        self.correction = correction
+        self.fft_sample_x = None
+        self.fft_sample_y = None
+        self.fft_reference_x = None
+        self.fft_reference_y = None
 
-    def get_concentration(self):
-        self.adjust_measurement_transmission_curve()
-        return self.concentration
+        self.comb_analyser = None
 
-    def get_measurement_transmission_curve(self):
-        aa = AbsorptionAnalyser(self.filename_sample, self.filename_reference,
-                                center_freq=self.center_freq, freq_spacing=self.freq_spacing,
-                                number_of_teeth=self.number_of_teeth, 
-                                high_freq_modulation=self.high_freq_modulation, 
-                                laser_wavelength=self.laser_wavelength)
-        self.absorption_analyser = aa
-        if self.correction:
-            import numpy as np
-            self.a_pre_correction = np.array([i for i in aa.a])
-            aa.a /= self.correction(aa.f)
+        self.wl_sample = None
+        self.power_sample = None
+        self.wl_reference = None
+        self.power_reference = None
 
-        self.f_transmission_curve_measurement, self.a_transmission_curve_measurement = aa.f, aa.a
-        return self.f_transmission_curve_measurement, self.a_transmission_curve_measurement
+        self.wl_sample_corrected = None
+        self.power_sample_corrected = None
+        self.x_sine = None
+        self.y_sine = None
 
-    def get_spectralcalc_transmissison_curve(self):
-        from lib.fitting import intersect_onto_common_grid
-        from lib.combs import to_frequency
-        from lib.spectralcalc import interpolated_transmission_curve
-        import numpy as np
-        from scipy.optimize import minimize
+    def read_data(self):
+        from lib.readers import LVMReader, SpectralcalcReader
 
-        if any(x is None for x in [self.f_transmission_curve_measurement, self.a_transmission_curve_measurement]):
-            self.get_measurement_transmission_curve()
+        reader_sample = LVMReader(self.filename_sample)
+        sample_data = reader_sample.extract_data()
 
-        # Fit concentration
-        def f(conc, f_sample, a_sample):
-            # Get the spectralcalc curve
-            wl_ref, a_ref = interpolated_transmission_curve(
-                conc, self.temperature, self.length)
+        reader_reference = LVMReader(self.filename_reference)
+        reference_data = reader_reference.extract_data()
 
-            # Transform the spectralcalc data to frequency
-            f_ref, a_ref = to_frequency(wl_ref, a_ref)
+        reader_spectralcalc = SpectralcalcReader(self.filename_spectralcalc)
+        spectralcalc_data = reader_spectralcalc.extract_data()
 
-            # Shift the sample spectrum to overlap with the spectralcalc data as much as possible
-            # f_sample = overlap_data(f_sample, a_sample, f_ref, a_ref)
+        t_sample = sample_data['time']
+        self.amplitude_sample = sample_data['amplitude']
 
-            # Interpolate the sample data onto the common grid
-            f_sample_com, a_sample_com, f_ref_com, a_ref_com = intersect_onto_common_grid(
-                f_sample, a_sample, f_ref, a_ref)
-            return np.sum((a_sample_com - a_ref_com)**2)
+        t_reference = reference_data['time']
+        self.amplitude_reference = reference_data['amplitude']
 
-        result = minimize(f, 0.001, args=(self.f_transmission_curve_measurement,
-                          self.a_transmission_curve_measurement), bounds=[(0, 1)])
-        concentration = result.x[0]
-        self.concentration = concentration
+        # Check that time arrays are the same in both time series
+        if not (t_sample == t_reference).all():
+            raise ValueError(
+                'Time arrays are not the same in both time series')
+        self.t = t_sample
 
-        # Get the spectralcalc curve
-        wl_spectralcalc, amplitude_spectralcalc = interpolated_transmission_curve(
-            concentration, self.temperature, self.length)
+        self.wl_spectralcalc = spectralcalc_data['wavelength']
+        self.power_spectralcalc = spectralcalc_data['amplitude']
+        self.pressure = spectralcalc_data['pressure']
+        self.temperature = spectralcalc_data['temperature']
+        self.concentration = spectralcalc_data['concentration']
+        self.length = spectralcalc_data['length']
 
-        # Transform the spectralcalc data to frequency
-        self.f_transmission_curve_spectralcalc, self.a_transmission_curve_spectralcalc = to_frequency(
-            wl_spectralcalc, amplitude_spectralcalc)
+    def time_series_plot(self):
+        if any(x is None for x in (self.t, self.amplitude_sample, self.amplitude_reference)):
+            self.read_data()
 
-        return self.f_transmission_curve_spectralcalc, self.a_transmission_curve_spectralcalc
-
-    def adjust_measurement_transmission_curve(self):
-        from lib.fitting import overlap_data
-
-        if any(x is None for x in [self.f_transmission_curve_measurement, self.a_transmission_curve_measurement, self.f_transmission_curve_spectralcalc, self.a_transmission_curve_spectralcalc]):
-            self.get_spectralcalc_transmissison_curve()
-
-        # # Shift the sample spectrum to overlap with the spectralcalc data as much as possible
-        # f_measurement = overlap_data(self.f_transmission_curve_measurement, self.a_transmission_curve_measurement,
-        #                              self.f_transmission_curve_spectralcalc, self.a_transmission_curve_spectralcalc)
-        # self.f_transmission_curve_measurement = f_measurement
-        return self.f_transmission_curve_measurement
-
-    def get_transmission_curves_plot(self):
-        from lib.combs import to_wavelength
         import matplotlib.pyplot as plt
 
-        if self.concentration is None:
-            self.get_concentration()
+        # Subplot the time series of the signal that has travelled through the sample
+        plt.subplot(2, 1, 1)
+        plt.plot(self.t, self.amplitude_sample, 'g-', linewidth=2)
+        plt.xlabel('Time (t)')
+        plt.ylabel('Amplitude')
+        plt.title('Time series of the sample')
 
-        # Transform everything back to wavelength
-        wl_sample, a_sample = to_wavelength(
-            self.f_transmission_curve_measurement, self.a_transmission_curve_measurement)
-        wl_spectralcalc, a_spectralcalc = to_wavelength(
-            self.f_transmission_curve_spectralcalc, self.a_transmission_curve_spectralcalc)
-        
-        if self.correction:
-            wl, a = to_wavelength(self.absorption_analyser.f, self.correction(self.absorption_analyser.f))
-            wl_pre, a_pre = to_wavelength(self.absorption_analyser.f, self.a_pre_correction)
+        # Subplot the time series of the reference signal
+        plt.subplot(2, 1, 2)
+        plt.plot(self.t, self.amplitude_reference, 'b-', linewidth=2)
+        plt.xlabel('Time (t)')
+        plt.ylabel('Amplitude')
+        plt.title('Time series of the reference')
 
-        # Plot the transmission curve
-        plt.plot(wl_spectralcalc, a_spectralcalc, 'b-', label=f'SpectralCalc for c = {self.concentration:.4f} VMR')
-        plt.plot(wl_sample, a_sample, 'ro-', label='Corrected Experiment' if self.correction else 'Experiment')
-        if self.correction:
-            plt.plot(wl_pre, a_pre, 'o-', label='Non Corrected Experiment')
-            plt.plot(wl, a, 'g-', label='Correction')
-        plt.xlabel('Wavelength (nm)')
-        plt.ylabel('Transmission')
-        plt.title(f'Plot of the transmission as a function of wavelength ({self.temperature} K, {self.concentration:.4f} VMR)')
-        plt.legend()
         return plt
 
-    def show_transmission_curves_plot(self):
-        self.get_transmission_curves_plot().show()
+    def show_time_series_plot(self):
+        self.time_series_plot().show()
+
+    def compute_fft(self):
+        if any(x is None for x in (self.t, self.amplitude_sample, self.amplitude_reference)):
+            self.read_data()
+
+        from lib.fft import fft_plot_data
+
+        self.fft_sample_x, self.fft_sample_y = fft_plot_data(
+            self.t, self.amplitude_sample)
+        self.fft_reference_x, self.fft_reference_y = fft_plot_data(
+            self.t, self.amplitude_reference)
+
+        return self.fft_sample_x, self.fft_sample_y, self.fft_reference_x, self.fft_reference_y
+
+    def fft_plot(self):
+        if any(x is None for x in (self.fft_sample_x, self.fft_sample_y, self.fft_reference_x, self.fft_reference_y)):
+            self.compute_fft()
+
+        import matplotlib.pyplot as plt
+
+        # Subplot the FFT of the signal that has travelled through the sample
+        plt.subplot(2, 1, 1)
+        plt.plot(self.fft_sample_x[1::],
+                 self.fft_sample_y[1::], 'g-', linewidth=2)
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Amplitude')
+        plt.title('FFT of the sample')
+
+        # Subplot the FFT of the reference signal
+        plt.subplot(2, 1, 2)
+        plt.plot(self.fft_reference_x[1::],
+                 self.fft_reference_y[1::], 'b-', linewidth=2)
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Amplitude')
+        plt.title('FFT of the reference')
+
+        return plt
+
+    def show_fft_plot(self):
+        self.fft_plot().show()
+
+    def create_comb_analyser(self):
+        if any(x is None for x in (self.fft_sample_x, self.fft_sample_y, self.fft_reference_x, self.fft_reference_y)):
+            self.compute_fft()
+
+        sample_analyzer = CombSpectrumAnalyser(
+            self.fft_sample_x, self.fft_sample_y, self.center_freq, self.freq_spacing,
+            self.number_of_teeth)
+        sample_freq, sample_amp = sample_analyzer.extract_teeth()
+
+        reference_analyzer = CombSpectrumAnalyser(
+            self.fft_reference_x, self.fft_reference_y, self.center_freq, self.freq_spacing,
+            self.number_of_teeth)
+        ref_freq, ref_amp = reference_analyzer.extract_teeth()
+
+        comb_analyser = CombAnalyser(
+            sample_freq, sample_amp, ref_freq, ref_amp)
+        comb_analyser.scaling_factor = self.scaling_factor
+
+        self.comb_analyser = comb_analyser
+        return self.comb_analyser
+
+    def get_transmission_curves(self):
+        if self.comb_analyser is None:
+            self.create_comb_analyser()
+
+        from lib.combs import (high_frequency_spectrum, to_frequency,
+                               to_wavelength)
+        from lib.fitting import overlap_data
+
+        # Get the transmission curve
+        f_sample, a_sample = self.comb_analyser.get_transmission_curve()
+
+        # Transform the spectralcalc data to frequency
+        f_spectralcalc, a_spectralcalc = to_frequency(
+            self.wl_spectralcalc, self.power_spectralcalc)
+
+        # Transform the low frequency comb spectrum to the high frequency comb spectrum
+        f_sample, a_sample = high_frequency_spectrum(f_sample, a_sample, f0=self.center_freq,
+                                                     fs=self.freq_spacing, fS=self.high_freq_modulation)
+
+        # Shift the sample spectrum to overlap with the spectralcalc data as much as possible
+        f_sample = overlap_data(
+            f_sample, a_sample, f_spectralcalc, a_spectralcalc)
+
+        # Transform everything back to wavelength
+        self.wl_sample, self.power_sample = to_wavelength(f_sample, a_sample)
+        self.wl_spectralcalc, self.power_spectralcalc = to_wavelength(
+            f_spectralcalc, a_spectralcalc)
+
+        if self.etalon_removal:
+            from lib.fitting import try_remove_etalon
+            wl_sample_corrected, self.power_sample_corrected, self.x_sine, self.y_sine = try_remove_etalon(
+                self.wl_sample, self.power_sample, ignore_regions=[self.etalon_removal])
+            self.wl_sample_corrected = overlap_data(wl_sample_corrected, self.power_sample_corrected,
+                                                    self.wl_spectralcalc, self.power_spectralcalc)
+
+        return self.wl_sample, self.power_sample, self.wl_spectralcalc, self.power_spectralcalc
+
+    def transmission_plot(self, save_figure=False):
+        if any(x is None for x in (self.wl_sample, self.power_sample, self.wl_spectralcalc, self.power_spectralcalc)):
+            self.get_transmission_curves()
+
+        import matplotlib.pyplot as plt
+
+        # Plot the transmission curve
+        plt.plot(self.wl_sample, self.power_sample, 'ro-', label='Experiment')
+
+        if self.etalon_removal:
+            plt.plot(self.x_sine, self.y_sine, 'yo-', label='Sine fit')
+            plt.plot(self.wl_sample_corrected, self.power_sample_corrected,
+                     'go-', label='Corrected Experiment')
+
+        plt.plot(self.wl_spectralcalc, self.power_spectralcalc,
+                 'b-', label='Spectralcalc Simulation')
+        plt.xlabel('Wavelength (nm)')
+        plt.ylabel('Transmission (%)')
+        title = f'Plot of the percentage transmission ({self.temperature}, {self.concentration})'
+        plt.title(title)
+        plt.legend()
+        plt.xlim(self.wl_sample[0] - 0.05, self.wl_sample[-1] + 0.05)
+        plt.gcf().set_size_inches(10, 6)
+
+        if save_figure:
+            import os
+
+            sample = os.path.splitext(self.filename_sample)[0]
+            reference = os.path.splitext(self.filename_reference)[0]
+
+            filename = f"{sample} and {reference}"
+            if self.etalon_removal:
+                filename += " - ETALON Removed"
+            figure_filename = f'../figures/{filename}.pdf'
+
+            plt.savefig(figure_filename)
+            f = os.path.dirname(os.path.realpath(__file__)) + figure_filename
+            print(f"Saved figure to `{f}`")
+
+        return plt
+
+    def show_transmission_plot(self, save_figure=False):
+        self.transmission_plot(save_figure=save_figure).show()

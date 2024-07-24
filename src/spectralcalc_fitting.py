@@ -1,5 +1,5 @@
 from lib.parser import spectralcalc_fitting_parse_arguments
-from lib.spectralcalc import SpectralCalcFitter
+from lib.analysis import SpectralCalcFitter
 
 filename_reference, filename_sample, filename_spectralcalc, center_freq, freq_spacing, \
     number_of_teeth, high_freq_modulation, etalon_removal, scaling_factor, save_figure \
