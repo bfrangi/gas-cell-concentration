@@ -313,3 +313,27 @@ def remove_etalon(x, y, ignore_regions=[], initial_guess=[5, 5, 3.14, 37], verbo
         print(f"Offset: {sine_parameters[3]}")
 
     return x_sine, y_sine, x, y - (y_sine - np.max(y_sine))
+
+def try_remove_etalon(x, y, ignore_regions=[]):
+    from lib.fitting import remove_etalon
+
+    initial_guess = [1.5, 5, 3.14, 37]
+
+    error = True
+    while error:
+        error = False
+        try:
+            x_sine, y_sine, x_corrected, y_corrected = remove_etalon(
+                x, y, ignore_regions=ignore_regions, 
+                initial_guess=initial_guess, verbose=True)
+        except Exception as e:
+            if initial_guess[2] < 9.42:
+                error = True
+            else:
+                raise e
+        finally:
+            if error:
+                print("Error in fitting, trying again with different initial guess")
+                initial_guess[2] += 0.05
+    
+    return x_corrected, y_corrected, x_sine, y_sine
