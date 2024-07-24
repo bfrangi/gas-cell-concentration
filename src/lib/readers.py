@@ -1,4 +1,5 @@
 class LVMReader:
+    """Reads a LabView Measurement file (.lvm) and extracts the data."""
     def __init__(self, filename):
         import os
 
@@ -46,6 +47,7 @@ class LVMReader:
 
 
 class SpectralcalcReader:
+    """Reads a Spectralcalc Simulation file and extracts the data."""
     def __init__(self, filename):
         import os
 

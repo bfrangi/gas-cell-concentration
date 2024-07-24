@@ -1,3 +1,5 @@
+# Interpolation
+
 def interpolate_onto_common_grid(x1, y1, x2, y2, step=1000j, remove_nan=True):
     """
     Interpolates the data sets y1 and y2 onto a common grid. This is useful when the data sets have
@@ -39,7 +41,7 @@ def interpolate_onto_common_grid(x1, y1, x2, y2, step=1000j, remove_nan=True):
 
     return new_x1, new_y1, new_x2, new_y2
 
-
+# Shifting
 
 def get_offset(x1, y1, x2, y2, step=1000j):
     """
@@ -119,6 +121,7 @@ def overlap_data(x_to_fit, y_to_fit, x_reference, y_reference, step=1000j):
                         y_reference, step=step)
     return x_to_fit + offset
 
+# Sine Fitting
 
 def sine_function(x, amplitude, frequency, phase, offset):
     '''
@@ -179,6 +182,7 @@ def fit_sine_to_data(x, y, initial_guess, ignore_regions=[], replace_with="NaN",
 
     return popt, pcov
 
+# ETALON removal
 
 def remove_etalon(x, y, ignore_regions=[], initial_guess=[5, 5, 3.14, 37], verbose=False):
     """
@@ -212,6 +216,16 @@ def remove_etalon(x, y, ignore_regions=[], initial_guess=[5, 5, 3.14, 37], verbo
 
 
 def try_remove_etalon(x, y, ignore_regions=[]):
+    """Tries to remove the etalon signal from the input data by fitting a sine function to the data
+    with different initial guesses. If the fitting fails, the function will try again with a 
+    different initial guess until it succeeds or runs out of initial guesses to try.
+    
+    Args:
+        x (array-like): The x-values of the data.
+        y (array-like): The y-values of the data.
+        ignore_regions (list, optional): A list of tuples, each containing two values (start and 
+            end) that define a region to ignore during fitting. Defaults to [].
+    """
     from lib.fitting import remove_etalon
 
     initial_guess = [1.5, 5, 3.14, 37]

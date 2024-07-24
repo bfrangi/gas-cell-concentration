@@ -33,6 +33,8 @@ class CombAnalyser:
             self.get_absorption_curve()
         return self.absorption_freq, self.scaling_factor - self.absorption_amp
 
+    # Plots
+
     def generate_absorption_plot(self, interp=False):
         if self.absorption_freq is None or self.absorption_amp is None:
             self.get_absorption_curve()
@@ -152,6 +154,8 @@ class CombSpectrumAnalyser:
         self.generate_spectrum_plot().show()
 
 class SpectralCalcFitter:
+    """Fits the experimental data to a given spectralcalc data, removing the etalon effect if 
+    requested."""
 
     def __init__(self, filename_sample, filename_reference, filename_spectralcalc,
                  scaling_factor=1.0, center_freq=40000, freq_spacing=200, number_of_teeth=38,
@@ -225,31 +229,6 @@ class SpectralCalcFitter:
         self.concentration = spectralcalc_data['concentration']
         self.length = spectralcalc_data['length']
 
-    def time_series_plot(self):
-        if any(x is None for x in (self.t, self.amplitude_sample, self.amplitude_reference)):
-            self.read_data()
-
-        import matplotlib.pyplot as plt
-
-        # Subplot the time series of the signal that has travelled through the sample
-        plt.subplot(2, 1, 1)
-        plt.plot(self.t, self.amplitude_sample, 'g-', linewidth=2)
-        plt.xlabel('Time (t)')
-        plt.ylabel('Amplitude')
-        plt.title('Time series of the sample')
-
-        # Subplot the time series of the reference signal
-        plt.subplot(2, 1, 2)
-        plt.plot(self.t, self.amplitude_reference, 'b-', linewidth=2)
-        plt.xlabel('Time (t)')
-        plt.ylabel('Amplitude')
-        plt.title('Time series of the reference')
-
-        return plt
-
-    def show_time_series_plot(self):
-        self.time_series_plot().show()
-
     def compute_fft(self):
         if any(x is None for x in (self.t, self.amplitude_sample, self.amplitude_reference)):
             self.read_data()
@@ -262,33 +241,6 @@ class SpectralCalcFitter:
             self.t, self.amplitude_reference)
 
         return self.fft_sample_x, self.fft_sample_y, self.fft_reference_x, self.fft_reference_y
-
-    def fft_plot(self):
-        if any(x is None for x in (self.fft_sample_x, self.fft_sample_y, self.fft_reference_x, self.fft_reference_y)):
-            self.compute_fft()
-
-        import matplotlib.pyplot as plt
-
-        # Subplot the FFT of the signal that has travelled through the sample
-        plt.subplot(2, 1, 1)
-        plt.plot(self.fft_sample_x[1::],
-                 self.fft_sample_y[1::], 'g-', linewidth=2)
-        plt.xlabel('Frequency (Hz)')
-        plt.ylabel('Amplitude')
-        plt.title('FFT of the sample')
-
-        # Subplot the FFT of the reference signal
-        plt.subplot(2, 1, 2)
-        plt.plot(self.fft_reference_x[1::],
-                 self.fft_reference_y[1::], 'b-', linewidth=2)
-        plt.xlabel('Frequency (Hz)')
-        plt.ylabel('Amplitude')
-        plt.title('FFT of the reference')
-
-        return plt
-
-    def show_fft_plot(self):
-        self.fft_plot().show()
 
     def create_comb_analyser(self):
         if any(x is None for x in (self.fft_sample_x, self.fft_sample_y, self.fft_reference_x, self.fft_reference_y)):
@@ -347,6 +299,60 @@ class SpectralCalcFitter:
                                                     self.wl_spectralcalc, self.power_spectralcalc)
 
         return self.wl_sample, self.power_sample, self.wl_spectralcalc, self.power_spectralcalc
+
+    # Plots
+
+    def time_series_plot(self):
+        if any(x is None for x in (self.t, self.amplitude_sample, self.amplitude_reference)):
+            self.read_data()
+
+        import matplotlib.pyplot as plt
+
+        # Subplot the time series of the signal that has travelled through the sample
+        plt.subplot(2, 1, 1)
+        plt.plot(self.t, self.amplitude_sample, 'g-', linewidth=2)
+        plt.xlabel('Time (t)')
+        plt.ylabel('Amplitude')
+        plt.title('Time series of the sample')
+
+        # Subplot the time series of the reference signal
+        plt.subplot(2, 1, 2)
+        plt.plot(self.t, self.amplitude_reference, 'b-', linewidth=2)
+        plt.xlabel('Time (t)')
+        plt.ylabel('Amplitude')
+        plt.title('Time series of the reference')
+
+        return plt
+
+    def show_time_series_plot(self):
+        self.time_series_plot().show()
+
+    def fft_plot(self):
+        if any(x is None for x in (self.fft_sample_x, self.fft_sample_y, self.fft_reference_x, self.fft_reference_y)):
+            self.compute_fft()
+
+        import matplotlib.pyplot as plt
+
+        # Subplot the FFT of the signal that has travelled through the sample
+        plt.subplot(2, 1, 1)
+        plt.plot(self.fft_sample_x[1::],
+                 self.fft_sample_y[1::], 'g-', linewidth=2)
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Amplitude')
+        plt.title('FFT of the sample')
+
+        # Subplot the FFT of the reference signal
+        plt.subplot(2, 1, 2)
+        plt.plot(self.fft_reference_x[1::],
+                 self.fft_reference_y[1::], 'b-', linewidth=2)
+        plt.xlabel('Frequency (Hz)')
+        plt.ylabel('Amplitude')
+        plt.title('FFT of the reference')
+
+        return plt
+
+    def show_fft_plot(self):
+        self.fft_plot().show()
 
     def transmission_plot(self, save_figure=False):
         if any(x is None for x in (self.wl_sample, self.power_sample, self.wl_spectralcalc, self.power_spectralcalc)):
