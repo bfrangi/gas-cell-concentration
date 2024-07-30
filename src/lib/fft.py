@@ -1,6 +1,5 @@
 def fft(x, y):
-    from scipy.fft import fft as scipy_fft
-    from scipy.fft import fftfreq
+    from scipy.fft import fft as scipy_fft, fftfreq
     N = len(x)  # Number of sample points
     T = x[1] - x[0]  # Sample spacing
     yf = scipy_fft(y)

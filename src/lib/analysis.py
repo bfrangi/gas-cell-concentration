@@ -380,7 +380,8 @@ class SpectralCalcFitter:
         peak_depth = 1 - min(self.transmission_sample)
         if overtransmission > peak_depth/5:
             plt.ylim(top=1+peak_depth/4)
-        plt.gcf().set_size_inches(10, 6)
+        figure_scale = 0.8
+        plt.gcf().set_size_inches(10*figure_scale, 6*figure_scale)
 
         if save_figure:
             import os
