@@ -116,7 +116,7 @@ class CombSpectrumAnalyser:
         return self.freq[argmin(abs(self.freq - f))]
 
     def extract_teeth(self):
-        from numpy import nonzero, array
+        from numpy import array, nonzero
 
         comb_frequencies = array(self.get_comb_frequencies())
         approx_comb_frequencies = array(
@@ -175,7 +175,7 @@ class SpectralCalcFitter:
         self.amplitude_reference = None
 
         self.wl_spectralcalc = None
-        self.power_spectralcalc = None
+        self.transmission_spectralcalc = None
         self.pressure = None
         self.temperature = None
         self.concentration = None
@@ -189,12 +189,12 @@ class SpectralCalcFitter:
         self.comb_analyser = None
 
         self.wl_sample = None
-        self.power_sample = None
+        self.transmission_sample = None
         self.wl_reference = None
-        self.power_reference = None
+        self.transmission_reference = None
 
         self.wl_sample_corrected = None
-        self.power_sample_corrected = None
+        self.transmission_sample_corrected = None
         self.x_sine = None
         self.y_sine = None
 
@@ -223,7 +223,7 @@ class SpectralCalcFitter:
         self.t = t_sample
 
         self.wl_spectralcalc = spectralcalc_data['wavelength']
-        self.power_spectralcalc = spectralcalc_data['amplitude']
+        self.transmission_spectralcalc = spectralcalc_data['amplitude']
         self.pressure = spectralcalc_data['pressure']
         self.temperature = spectralcalc_data['temperature']
         self.concentration = spectralcalc_data['concentration']
@@ -267,7 +267,7 @@ class SpectralCalcFitter:
         if self.comb_analyser is None:
             self.create_comb_analyser()
 
-        from lib.combs import (high_frequency_spectrum, to_frequency,
+        from lib.combs import (approximate_high_frequency_spectrum, to_frequency,
                                to_wavelength)
         from lib.fitting import overlap_data
 
@@ -276,10 +276,10 @@ class SpectralCalcFitter:
 
         # Transform the spectralcalc data to frequency
         f_spectralcalc, a_spectralcalc = to_frequency(
-            self.wl_spectralcalc, self.power_spectralcalc)
+            self.wl_spectralcalc, self.transmission_spectralcalc)
 
         # Transform the low frequency comb spectrum to the high frequency comb spectrum
-        f_sample, a_sample = high_frequency_spectrum(f_sample, a_sample, f0=self.center_freq,
+        f_sample, a_sample = approximate_high_frequency_spectrum(f_sample, a_sample, f0=self.center_freq,
                                                      fs=self.freq_spacing, fS=self.high_freq_modulation)
 
         # Shift the sample spectrum to overlap with the spectralcalc data as much as possible
@@ -287,18 +287,18 @@ class SpectralCalcFitter:
             f_sample, a_sample, f_spectralcalc, a_spectralcalc)
 
         # Transform everything back to wavelength
-        self.wl_sample, self.power_sample = to_wavelength(f_sample, a_sample)
-        self.wl_spectralcalc, self.power_spectralcalc = to_wavelength(
+        self.wl_sample, self.transmission_sample = to_wavelength(f_sample, a_sample)
+        self.wl_spectralcalc, self.transmission_spectralcalc = to_wavelength(
             f_spectralcalc, a_spectralcalc)
 
         if self.etalon_removal:
             from lib.fitting import try_remove_etalon
-            wl_sample_corrected, self.power_sample_corrected, self.x_sine, self.y_sine = try_remove_etalon(
-                self.wl_sample, self.power_sample, ignore_regions=[self.etalon_removal])
-            self.wl_sample_corrected = overlap_data(wl_sample_corrected, self.power_sample_corrected,
-                                                    self.wl_spectralcalc, self.power_spectralcalc)
+            wl_sample_corrected, self.transmission_sample_corrected, self.x_sine, self.y_sine = try_remove_etalon(
+                self.wl_sample, self.transmission_sample, ignore_regions=[self.etalon_removal])
+            self.wl_sample_corrected = overlap_data(wl_sample_corrected, self.transmission_sample_corrected,
+                                                    self.wl_spectralcalc, self.transmission_spectralcalc)
 
-        return self.wl_sample, self.power_sample, self.wl_spectralcalc, self.power_spectralcalc
+        return self.wl_sample, self.transmission_sample, self.wl_spectralcalc, self.transmission_spectralcalc
 
     # Plots
 
@@ -355,27 +355,31 @@ class SpectralCalcFitter:
         self.fft_plot().show()
 
     def transmission_plot(self, save_figure=False):
-        if any(x is None for x in (self.wl_sample, self.power_sample, self.wl_spectralcalc, self.power_spectralcalc)):
+        if any(x is None for x in (self.wl_sample, self.transmission_sample, self.wl_spectralcalc, self.transmission_spectralcalc)):
             self.get_transmission_curves()
 
         import matplotlib.pyplot as plt
 
         # Plot the transmission curve
-        plt.plot(self.wl_sample, self.power_sample, 'ro-', label='Experiment')
+        plt.plot(self.wl_sample, self.transmission_sample, 'ro-', label='Experiment')
 
         if self.etalon_removal:
             plt.plot(self.x_sine, self.y_sine, 'yo-', label='Sine fit')
-            plt.plot(self.wl_sample_corrected, self.power_sample_corrected,
+            plt.plot(self.wl_sample_corrected, self.transmission_sample_corrected,
                      'go-', label='Corrected Experiment')
 
-        plt.plot(self.wl_spectralcalc, self.power_spectralcalc,
+        plt.plot(self.wl_spectralcalc, self.transmission_spectralcalc,
                  'b-', label='Spectralcalc Simulation')
         plt.xlabel('Wavelength (nm)')
-        plt.ylabel('Transmission (%)')
+        plt.ylabel('Transmission fraction')
         title = f'Plot of the percentage transmission ({self.temperature}, {self.concentration})'
         plt.title(title)
         plt.legend()
         plt.xlim(self.wl_sample[0] - 0.05, self.wl_sample[-1] + 0.05)
+        overtransmission = max(self.transmission_sample) - 1
+        peak_depth = 1 - min(self.transmission_sample)
+        if overtransmission > peak_depth/5:
+            plt.ylim(top=1+peak_depth/4)
         plt.gcf().set_size_inches(10, 6)
 
         if save_figure:

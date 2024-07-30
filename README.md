@@ -17,7 +17,7 @@ python3 spectralcalc_fitting.py filename_sample filename_reference filename_spec
 ```
 
 The three positional arguments are the filenames of the sample (`filename_sample`), reference 
-(`filename_reference`), and spectralcalc files (`filename_spectralcalc`), respectively. The sample
+(`filename_reference`), and spectralcalc files (`filename_spectralcalc`), respectively. Measurement files should be saved in the `measurements` folder, and the SpectralCalc files should be saved in the `spectralcalc-simulations` folder. The sample
 and reference files are the measured spectra, while the spectralcalc file is the calculated 
 spectrum, obtained from the Hitran database.
 

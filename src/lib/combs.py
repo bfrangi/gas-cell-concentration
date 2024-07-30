@@ -1,10 +1,12 @@
-def high_frequency_spectrum(f, a, f0, fs, fS, laser_wl=1.645560e-6, c=3.0e8):
+def approximate_high_frequency_spectrum(f, a, f0, fs, fS, laser_wl=1.645560e-6, c=3.0e8):
     '''
     Performs an approximate transformation of the low frequency comb into the high frequency comb,
     which contains the frequencies that actually interact with and are absorbed by the gas. This is 
     an approximation because it assumes a specific wavelength for the laser, which in real life can
     vary slightly accross measurements due to temperature/current fluctuations and other 
-    perturbations.
+    perturbations. The real high frequency comb will be slightly shifted in frequenyc 
+    from the one obtained by this function; nevertheless, this function is useful for a first 
+    approximation of the high frequency comb.
 
     Args:
         f (array-like): frequency array of the low-frequency comb
