@@ -6,13 +6,16 @@ measurement of CH4 concentration in a glass cell.
 ## Setup
 
 To install all requirements, make sure you have Python 3.6 or later installed and create a virtual
-environment to work in (this last step is optional).
+environment to work in (this last step is optional). Then, run the following command while in the 
+root directory:
+```
+pip install -r requirements.txt
+```
 
 ## Usage
 
 Run the script with:
 ```bash
-pip install -r requirements.txt
 python3 spectralcalc_fitting.py filename_sample filename_reference filename_spectralcalc [-h] [--center-freq CENTER_FREQ] [--freq-spacing FREQ_SPACING] [--number-of-teeth NUMBER_OF_TEETH] [--high-freq-modulation HIGH_FREQ_MODULATION] [--scaling-factor SCALING_FACTOR] [--remove-etalon REMOVE_ETALON REMOVE_ETALON] [--save-figure | --no-save-figure | -s] 
 ```
 
